@@ -246,7 +246,7 @@ def create_dataset_detection(
     test_dataset = dataset.skip(val_size + train_size)
 
     # Batch the data for multiple steps
-    # If the size of training data is smaller than the batch size,
+    # If the size of training, validation, or testing data is smaller than the batch size,
     # batch the data to expand the dimensions by a length 1 axis.
     # This will ensure that the training data is valid model input
     train_batch_size = batch_size if batch_size < train_size else train_size
@@ -552,6 +552,7 @@ if __name__ == "main":
     )  # Adapt preprocessing and prefetching dynamically
 
     # rel_yxyx indicates how we parsed the coordinates from the dataset file
+    # For more information about bounding box formats, see: https://keras.io/api/keras_cv/bounding_box/formats/
     SRC_BBOX = "rel_yxyx"
     # TGT_BBOX is the format expected by the underlying keras model
     TGT_BBOX = SRC_BBOX
