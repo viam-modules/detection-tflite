@@ -43,6 +43,7 @@ def parse_filenames_and_bboxes_from_json(
     filename: str,
 ) -> ty.Tuple[ty.List[str], ty.List[str], ty.List[ty.List[float]]]:
     """Load and parse JSON file to return image filenames and corresponding labels with bboxes.
+        The JSON file contains lines, where each line has the key "image_path" and "bounding_box_annotations".
     Args:
         filename: JSONLines file containing filenames and bboxes
     """
@@ -77,7 +78,7 @@ def parse_image_and_encode_bboxes(
     tgt_bbox_format: str,
     img_size: ty.Tuple[int, int] = (256, 256),
 ) -> dict:
-    """Returns a dictionary of normalized image array and integer encoded labels array.
+    """Returns a dictionary of normalized image array, integer encoded labels array, and bounding box coordinates.
     Args:
         data: dataset in dictionary format containing images and their bounding boxes
         all_labels: list of all N_LABELS
@@ -221,6 +222,8 @@ def create_dataset_detection(
         }
     )
 
+    # Apply a map to the dataset that converts filenames, text labels, and bounding boxes
+    # to normalized images, encoded labels, and bounding boxes coordinates, respectively.
     def mapping_fnc(x):
         return parse_image_and_encode_bboxes(
             x, all_labels, src_bbox_format, tgt_bbox_format, target_shape[0:2]
@@ -330,6 +333,9 @@ def build_and_compile_detection(
             confidence_threshold=0.7,
         ),
     )
+    # Freeze the weights of the base model. This allows to use transfer learning
+    # to train only the top layers of the model. Setting the base model to be trainable
+    # would allow for all layers, not just the top, to be retrained.
     model.backbone.trainable = False
 
 def save_labels(labels: ty.List[str], model_dir: str) -> None:
