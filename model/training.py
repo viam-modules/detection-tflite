@@ -29,15 +29,18 @@ _INPUT_MAX = 255
 
 labels_filename = "labels.txt"
 
+
 def parse_args():
-    """Dataset file and model output directory are required parameters. These must be parsed as command line 
-        arguments and then used as the model input and output, respectively.
+    """Returns dataset file, model output directory, and num_epochs if present. These must be parsed as command line
+    arguments and then used as the model input and output, respectively. The number of epochs can be used to optionally override the default.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_file", dest="data_json", type=str)
     parser.add_argument("--model_output_directory", dest="model_dir", type=str)
+    parser.add_argument("--num_epochs", dest="num_epochs", type=int)
     args = parser.parse_args()
-    return args.data_json, args.model_dir
+    return args.data_json, args.model_dir, args.num_epochs
+
 
 def parse_filenames_and_bboxes_from_json(
     filename: str,
@@ -71,6 +74,7 @@ def parse_filenames_and_bboxes_from_json(
             bbox_coords.append(coords)
     return image_filenames, bbox_labels, bbox_coords
 
+
 def parse_image_and_encode_bboxes(
     data: tf.data.Dataset,
     all_labels: ty.List[str],
@@ -97,10 +101,9 @@ def parse_image_and_encode_bboxes(
     image_resized = tf.image.resize(image_decoded, [img_size[0], img_size[1]])
     # Convert string labels to encoded labels
     encoder = tf.keras.layers.StringLookup(
-            vocabulary=all_labels, num_oov_indices=0, output_mode="int"
+        vocabulary=all_labels, num_oov_indices=0, output_mode="int"
     )
-    labels_encoded = encoder(
-        data["bounding_boxes"]["classes"], all_labels)
+    labels_encoded = encoder(data["bounding_boxes"]["classes"], all_labels)
     # Convert bboxes to their intended format
     boxes = convert_bboxes(
         data["bounding_boxes"]["boxes"], src_bbox_format, tgt_bbox_format, image_resized
@@ -109,6 +112,7 @@ def parse_image_and_encode_bboxes(
     data["bounding_boxes"]["classes"] = labels_encoded
     data["bounding_boxes"]["boxes"] = boxes
     return data
+
 
 def convert_bboxes(
     bboxes: tf.Tensor,
@@ -133,6 +137,7 @@ def convert_bboxes(
         target=tgt_bbox_format,
     )
 
+
 # RandAugment is based on https://arxiv.org/abs/1909.13719
 def rand_augment(inputs: dict) -> dict:
     inputs["images"] = keras_cv.layers.RandAugment(
@@ -145,6 +150,7 @@ def rand_augment(inputs: dict) -> dict:
         geometric=False,
     )(inputs["images"], training=True)
     return inputs
+
 
 def augmentations_detection(
     tgt_bbox_format: str,
@@ -167,6 +173,7 @@ def augmentations_detection(
     )
     return augmentations
 
+
 def convert_to_tuple(inputs: dict, max_boxes: int) -> ty.Tuple[tf.Tensor, tf.Tensor]:
     """Converts dictionary of inputs into tuple of images and their corresponding bounding boxes
     Args:
@@ -176,6 +183,7 @@ def convert_to_tuple(inputs: dict, max_boxes: int) -> ty.Tuple[tf.Tensor, tf.Ten
     return inputs["images"], bounding_box.to_dense(
         inputs["bounding_boxes"], max_boxes=max_boxes
     )
+
 
 def create_dataset_detection(
     filenames: ty.List[str],
@@ -308,6 +316,7 @@ def create_dataset_detection(
 
     return train_dataset, val_dataset, test_dataset
 
+
 # Build the Keras model for object detection
 def build_and_compile_detection(
     num_classes: int, bounding_box_format: str, input_shape: ty.Tuple[int, int, int]
@@ -338,12 +347,14 @@ def build_and_compile_detection(
     # would allow for all layers, not just the top, to be retrained.
     model.backbone.trainable = False
 
+
 def save_labels(labels: ty.List[str], model_dir: str) -> None:
     filename = os.path.join(model_dir, labels_filename)
     with open(filename, "w") as f:
         for label in labels[:-1]:
             f.write(label + "\n")
         f.write(labels[-1])
+
 
 def preprocessing_layers_detection(
     target_shape: ty.Tuple[int, int, int] = (256, 256, 3),
@@ -369,6 +380,7 @@ def preprocessing_layers_detection(
         ]
     )
     return preprocessing
+
 
 def add_metadata_detection(tflite_model, model_dir):
     """Adds TFLite metadata to the TFLite model buffer to comply with standard metadata requirements.
@@ -502,6 +514,7 @@ def add_metadata_detection(tflite_model, model_dir):
     updated_model_buf = populator.get_model_buffer()
     return updated_model_buf
 
+
 def save_tflite_detection(
     model: Model,
     model_dir: str,
@@ -533,6 +546,7 @@ def save_tflite_detection(
     with open(filename, "wb") as f:
         f.write(tflite_model_metadata)
 
+
 if __name__ == "main":
     # Set up compute device strategy
     if len(tf.config.list_physical_devices("GPU")) > 0:
@@ -544,9 +558,7 @@ if __name__ == "main":
     # TARGET_SHAPE is the intended shape of the model after resizing
     # For EfficientNet, this must be some multiple of 128 according to the documentation.
     TARGET_SHAPE = (384, 384, 3)
-    SHUFFLE_BUFFER_SIZE = (
-        64  # Shuffle the training data by a chunk of 64 observations
-    )
+    SHUFFLE_BUFFER_SIZE = 64  # Shuffle the training data by a chunk of 64 observations
     AUTOTUNE = (
         tf.data.experimental.AUTOTUNE
     )  # Adapt preprocessing and prefetching dynamically
@@ -560,9 +572,10 @@ if __name__ == "main":
     # Model constants
     NUM_WORKERS = strategy.num_replicas_in_sync
     GLOBAL_BATCH_SIZE = BATCH_SIZE * NUM_WORKERS
-    EPOCHS = 2
 
-    DATA_JSON, MODEL_DIR = parse_args()
+    DATA_JSON, MODEL_DIR, num_epochs = parse_args()
+
+    EPOCHS = 200 if num_epochs == None or 0 else num_epochs
     # Read dataset file, labels should be changed according to the desired model output.
     LABELS = ["orange_triangle", "blue_star"]
     # Get filenames and bounding boxes of all images
