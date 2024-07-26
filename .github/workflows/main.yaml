@@ -12,6 +12,6 @@ jobs:
     uses: viam-modules/common-workflows/.github/workflows/deploy_training_script.yaml@main
     with:
       framework: tflite
-      script_name: classification-tflite
-      model_type: single_label_classification
+      script_name: detection-tflite
+      model_type: object_detection
     secrets: inherit
