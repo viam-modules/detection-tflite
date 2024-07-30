@@ -547,7 +547,7 @@ def save_tflite_detection(
         f.write(tflite_model_metadata)
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     # Set up compute device strategy
     if len(tf.config.list_physical_devices("GPU")) > 0:
         strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
