@@ -50,6 +50,7 @@ def parse_filenames_and_bboxes_from_json(
         The JSON file contains lines, where each line has the key "image_path" and "bounding_box_annotations".
     Args:
         filename: JSONLines file containing filenames and bboxes
+        all_labels: list of all N_LABELS
     """
     image_filenames = []
     bbox_labels = []
@@ -76,8 +77,6 @@ def parse_filenames_and_bboxes_from_json(
                     )
             bbox_labels.append(labels)
             bbox_coords.append(coords)
-    return image_filenames, bbox_labels, bbox_coords
-
     return image_filenames, bbox_labels, bbox_coords
 
 
@@ -603,6 +602,7 @@ if __name__ == "__main__":
         bbox_coords,
     ) = parse_filenames_and_bboxes_from_json(
         filename=DATA_JSON,
+        all_labels=LABELS,
     )
 
     # Generate 80/10/10 split for train, validation and test data
