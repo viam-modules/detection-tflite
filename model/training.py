@@ -103,7 +103,7 @@ def parse_image_and_encode_bboxes(
     encoder = tf.keras.layers.StringLookup(
         vocabulary=all_labels, num_oov_indices=0, output_mode="int"
     )
-    labels_encoded = encoder(data["bounding_boxes"]["classes"], all_labels)
+    labels_encoded = encoder(data["bounding_boxes"]["classes"])
     # Convert bboxes to their intended format
     boxes = convert_bboxes(
         data["bounding_boxes"]["boxes"], src_bbox_format, tgt_bbox_format, image_resized
