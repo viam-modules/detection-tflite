@@ -1,14 +1,14 @@
 import argparse
 import json
 import os
-import sys
 import typing as ty
 
-import numpy as np
 import keras_cv
 from keras_cv import bounding_box
 import tensorflow as tf
 from keras import Model
+from .combined_nms import CombinedNMS
+
 
 import flatbuffers
 from tflite_support import metadata_schema_py_generated as _metadata_fb
@@ -333,13 +333,10 @@ def build_and_compile_detection(
             include_rescaling=True,
             input_shape=input_shape,
         ),
-        prediction_decoder=keras_cv.layers.NonMaxSuppression(
-            bounding_box_format=bounding_box_format,
+        prediction_decoder=CombinedNMS(
             from_logits=True,
-            # Tunable intersection over union threshold for predictions
-            iou_threshold=0.2,
-            # Tunable confidence threshold for predictions
-            confidence_threshold=0.7,
+            num_classes=num_classes,
+            src_bounding_box_format=bounding_box_format,
         ),
     )
     # Freeze the weights of the base model. This allows to use transfer learning
