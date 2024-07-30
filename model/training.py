@@ -344,6 +344,21 @@ def build_and_compile_detection(
     # would allow for all layers, not just the top, to be retrained.
     model.backbone.trainable = False
 
+    # Enforce global clipnorm for optimizer
+    optimizer = tf.keras.optimizers.SGD(
+        learning_rate=0.01,
+        momentum=0.9,
+        global_clipnorm=10.0,
+    )
+
+    # Use preconfigured focal and smooth l1 losses
+    model.compile(
+        classification_loss="focal",
+        box_loss="smoothl1",
+        optimizer=optimizer,
+    )
+    return model
+
 
 def save_labels(labels: ty.List[str], model_dir: str) -> None:
     filename = os.path.join(model_dir, labels_filename)
@@ -602,6 +617,7 @@ if __name__ == "__main__":
     # Build and compile model
     with strategy.scope():
         model = build_and_compile_detection(len(LABELS), TGT_BBOX, TARGET_SHAPE)
+
     # Train model on data
     loss_history = model.fit(
         x=train_dataset,
