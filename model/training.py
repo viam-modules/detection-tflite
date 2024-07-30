@@ -44,6 +44,7 @@ def parse_args():
 
 def parse_filenames_and_bboxes_from_json(
     filename: str,
+    all_labels: ty.List[str],
 ) -> ty.Tuple[ty.List[str], ty.List[str], ty.List[ty.List[float]]]:
     """Load and parse JSON file to return image filenames and corresponding labels with bboxes.
         The JSON file contains lines, where each line has the key "image_path" and "bounding_box_annotations".
@@ -59,19 +60,24 @@ def parse_filenames_and_bboxes_from_json(
             json_line = json.loads(line)
             image_filenames.append(json_line["image_path"])
             annotations = json_line["bounding_box_annotations"]
-            labels = [annotation["annotation_label"] for annotation in annotations]
-            # Store coordinates in rel_yxyx format so that we can use the keras_cv function
-            coords = [
-                [
-                    annotation["y_min_normalized"],
-                    annotation["x_min_normalized"],
-                    annotation["y_max_normalized"],
-                    annotation["x_max_normalized"],
-                ]
-                for annotation in annotations
-            ]
+            labels = []
+            coords = []
+            for annotation in annotations:
+                if annotation["annotation_label"] in all_labels:
+                    labels.append(annotation["annotation_label"])
+                    # Store coordinates in rel_yxyx format so that we can use the keras_cv function
+                    coords.append(
+                        [
+                            annotation["y_min_normalized"],
+                            annotation["x_min_normalized"],
+                            annotation["y_max_normalized"],
+                            annotation["x_max_normalized"],
+                        ]
+                    )
             bbox_labels.append(labels)
             bbox_coords.append(coords)
+    return image_filenames, bbox_labels, bbox_coords
+
     return image_filenames, bbox_labels, bbox_coords
 
 
