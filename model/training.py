@@ -94,7 +94,6 @@ def parse_image_and_encode_bboxes(
         src_bbox_format: input format of the bboxes
         tgt_bbox_format: format of the bboxes for use in model training
     """
-    # Read an image from gcs
     image_string = tf.io.read_file(data["images"])
     image_decoded = tf.image.decode_image(
         image_string,
