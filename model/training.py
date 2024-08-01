@@ -11,9 +11,9 @@ from keras import Model
 from .combined_nms import CombinedNMS
 
 
-import flatbuffers
-from tflite_support import metadata_schema_py_generated as _metadata_fb
-from tflite_support import metadata as _metadata
+# import flatbuffers
+# from tflite_support import metadata_schema_py_generated as _metadata_fb
+# from tflite_support import metadata as _metadata
 
 TFLITE_OPS = [
     tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
