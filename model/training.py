@@ -564,6 +564,7 @@ def save_tflite_detection(
 
 
 if __name__ == "__main__":
+    print("main running")
     # Set up compute device strategy
     if len(tf.config.list_physical_devices("GPU")) > 0:
         strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
@@ -590,8 +591,9 @@ if __name__ == "__main__":
     GLOBAL_BATCH_SIZE = BATCH_SIZE * NUM_WORKERS
 
     DATA_JSON, MODEL_DIR, num_epochs = parse_args()
+    print("main running 2")
 
-    EPOCHS = 200 if num_epochs == None or 0 else num_epochs
+    EPOCHS = 200 if num_epochs is None or 0 else int(num_epochs)
     # Read dataset file, labels should be changed according to the desired model output.
     LABELS = ["orange_triangle", "blue_star"]
     # Get filenames and bounding boxes of all images
@@ -603,6 +605,8 @@ if __name__ == "__main__":
         filename=DATA_JSON,
         all_labels=LABELS,
     )
+
+    print("main running 3")
 
     # Generate 80/10/10 split for train, validation and test data
     train_dataset, val_dataset, test_dataset = create_dataset_detection(
