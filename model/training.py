@@ -11,9 +11,9 @@ from keras import Model
 from .combined_nms import CombinedNMS
 
 
-# import flatbuffers
-# from tflite_support import metadata_schema_py_generated as _metadata_fb
-# from tflite_support import metadata as _metadata
+import flatbuffers
+from tflite_support import metadata_schema_py_generated as _metadata_fb
+from tflite_support import metadata as _metadata
 
 TFLITE_OPS = [
     tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
@@ -624,9 +624,14 @@ if __name__ == "__main__":
         num_parallel_calls=AUTOTUNE,
         prefetch_buffer_size=AUTOTUNE,
     )
+
+    print("main running 4")
+
     # Build and compile model
     with strategy.scope():
         model = build_and_compile_detection(len(LABELS), TGT_BBOX, TARGET_SHAPE)
+
+    print("main running 5")
 
     # Train model on data
     loss_history = model.fit(
@@ -634,6 +639,8 @@ if __name__ == "__main__":
         validation_data=val_dataset,
         epochs=EPOCHS,
     )
+
+    print("main running 6")
 
     # Save labels.txt file
     save_labels(LABELS, MODEL_DIR)
