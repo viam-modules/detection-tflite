@@ -594,7 +594,7 @@ if __name__ == "__main__":
     DATA_JSON, MODEL_DIR, num_epochs = parse_args()
     print("main running 2")
 
-    EPOCHS = 200 if num_epochs is None or 0 else int(num_epochs)
+    EPOCHS = 200 if num_epochs is None or 0 else num_epochs
     # Read dataset file, labels should be changed according to the desired model output.
     LABELS = ["orange_triangle", "blue_star"]
     # Get filenames and bounding boxes of all images
