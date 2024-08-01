@@ -3,9 +3,10 @@ import json
 import os
 import typing as ty
 
+import tensorflow as tf
+from tensorflow import keras
 import keras_cv
 from keras_cv import bounding_box
-import tensorflow as tf
 from keras import Model
 from .combined_nms import CombinedNMS
 
