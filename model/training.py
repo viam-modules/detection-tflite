@@ -142,43 +142,6 @@ def convert_bboxes(
         target=tgt_bbox_format,
     )
 
-
-# RandAugment is based on https://arxiv.org/abs/1909.13719
-def rand_augment(inputs: dict) -> dict:
-    inputs["images"] = keras_cv.layers.RandAugment(
-        # Assumes image is encoded as pixels between 0 - 255
-        value_range=(0, 255),
-        rate=0.5,
-        magnitude=0.25,
-        augmentations_per_image=2,
-        # Setting geometric to False ensures no geometric augmentations are made
-        geometric=False,
-    )(inputs["images"], training=True)
-    return inputs
-
-
-def augmentations_detection(
-    tgt_bbox_format: str,
-    target_size: ty.Tuple[int, int],
-) -> dict:
-    augmentations = tf.keras.Sequential(
-        layers=[
-            keras_cv.layers.RandomFlip(
-                mode="horizontal", bounding_box_format=tgt_bbox_format
-            ),
-            # This operation randomly rescales image with a RV from distribution defined by scale_factor,
-            # crops to crop_size, and then pads cropped image to target_shape
-            keras_cv.layers.JitteredResize(
-                target_size=target_size,
-                crop_size=None,
-                scale_factor=(0.85, 1.3),
-                bounding_box_format=tgt_bbox_format,
-            ),
-        ]
-    )
-    return augmentations
-
-
 def convert_to_tuple(inputs: dict, max_boxes: int) -> ty.Tuple[tf.Tensor, tf.Tensor]:
     """Converts dictionary of inputs into tuple of images and their corresponding bounding boxes
     Args:
@@ -288,18 +251,22 @@ def create_dataset_detection(
     )
 
     # Apply augmentations for that preserve bbox characteristics relative to image
-    def augment_wrapper(inputs):
-        return augmentations_detection(tgt_bbox_format, target_shape[0:2])(
-            inputs, training=True
-        )
-
-    train_dataset = train_dataset.map(
-        augment_wrapper, num_parallel_calls=num_parallel_calls
+    random_flip = keras_cv.layers.RandomFlip(
+                mode="horizontal", bounding_box_format=tgt_bbox_format
     )
-
-    # Since RandAugment is only applied to the image, we separate this augmentation from the others
+    # This operation randomly rescales image with a RV from distribution defined by scale_factor,
+    # crops to crop_size, and then pads cropped image to target_shape
+    jittered_resize = keras_cv.layers.JitteredResize(
+        target_size=target_shape[0:2],
+        crop_size=None,
+        scale_factor=(0.85, 1.3),
+        bounding_box_format=tgt_bbox_format,
+    )
+        
     train_dataset = train_dataset.map(
-        rand_augment, num_parallel_calls=num_parallel_calls
+        random_flip, num_parallel_calls=num_parallel_calls
+    ).map(
+        jittered_resize, num_parallel_calls=num_parallel_calls
     )
 
     def conversion_wrapper(inputs):
@@ -565,7 +532,6 @@ def save_tflite_detection(
 
 
 if __name__ == "__main__":
-    print("main running")
     # Set up compute device strategy
     if len(tf.config.list_physical_devices("GPU")) > 0:
         strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
@@ -592,7 +558,6 @@ if __name__ == "__main__":
     GLOBAL_BATCH_SIZE = BATCH_SIZE * NUM_WORKERS
 
     DATA_JSON, MODEL_DIR, num_epochs = parse_args()
-    print("main running 2")
 
     EPOCHS = 200 if num_epochs is None or 0 else int(num_epochs)
     # Read dataset file, labels should be changed according to the desired model output.
@@ -606,8 +571,6 @@ if __name__ == "__main__":
         filename=DATA_JSON,
         all_labels=LABELS,
     )
-
-    print("main running 3")
 
     # Generate 80/10/10 split for train, validation and test data
     train_dataset, val_dataset, test_dataset = create_dataset_detection(
@@ -625,13 +588,9 @@ if __name__ == "__main__":
         prefetch_buffer_size=AUTOTUNE,
     )
 
-    print("main running 4")
-
     # Build and compile model
     with strategy.scope():
         model = build_and_compile_detection(len(LABELS), TGT_BBOX, TARGET_SHAPE)
-
-    print("main running 5")
 
     # Train model on data
     loss_history = model.fit(
@@ -639,8 +598,6 @@ if __name__ == "__main__":
         validation_data=val_dataset,
         epochs=EPOCHS,
     )
-
-    print("main running 6")
 
     # Save labels.txt file
     save_labels(LABELS, MODEL_DIR)
