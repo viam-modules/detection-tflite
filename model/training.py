@@ -11,7 +11,7 @@ from keras import Model
 from .combined_nms import CombinedNMS
 
 
-import flatbuffers
+# import flatbuffers
 from tflite_support import metadata_schema_py_generated as _metadata_fb
 from tflite_support import metadata as _metadata
 
