@@ -142,6 +142,7 @@ def convert_bboxes(
         target=tgt_bbox_format,
     )
 
+
 def convert_to_tuple(inputs: dict, max_boxes: int) -> ty.Tuple[tf.Tensor, tf.Tensor]:
     """Converts dictionary of inputs into tuple of images and their corresponding bounding boxes
     Args:
@@ -252,7 +253,7 @@ def create_dataset_detection(
 
     # Apply augmentations for that preserve bbox characteristics relative to image
     random_flip = keras_cv.layers.RandomFlip(
-                mode="horizontal", bounding_box_format=tgt_bbox_format
+        mode="horizontal", bounding_box_format=tgt_bbox_format
     )
     # This operation randomly rescales image with a RV from distribution defined by scale_factor,
     # crops to crop_size, and then pads cropped image to target_shape
@@ -262,12 +263,10 @@ def create_dataset_detection(
         scale_factor=(0.85, 1.3),
         bounding_box_format=tgt_bbox_format,
     )
-        
+
     train_dataset = train_dataset.map(
         random_flip, num_parallel_calls=num_parallel_calls
-    ).map(
-        jittered_resize, num_parallel_calls=num_parallel_calls
-    )
+    ).map(jittered_resize, num_parallel_calls=num_parallel_calls)
 
     def conversion_wrapper(inputs):
         return convert_to_tuple(inputs, max_boxes=max_boxes)
