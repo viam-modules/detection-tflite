@@ -9,7 +9,7 @@ We test this when you cut a PR by running `scripts/test.sh`. This in turn just r
 
 ### Pull Request
 
-When you submit a pull request a workflow will run using our [common workflows](https://github.com/viam-modules/common-workflows/) that will lint check your code, build it in the docker image we us in production (tensorflow/tensorflow:2.11.1-gpu) and run the test file you specify.
+When you submit a pull request a workflow will run using our [common workflows](https://github.com/viam-modules/common-workflows/) that will lint check your code, build it in the docker image we use in production for training and run the test file you specify.
 
 The default test files is `scripts/test.sh`. If this changes you will need to update `.github/workflows/pull_request.yaml` so that it's
 
