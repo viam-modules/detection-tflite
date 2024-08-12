@@ -3,16 +3,12 @@ import json
 import os
 import typing as ty
 
+import tensorflow as tf
+from tensorflow import keras
 import keras_cv
 from keras_cv import bounding_box
-import tensorflow as tf
 from keras import Model
 from .combined_nms import CombinedNMS
-
-
-import flatbuffers
-from tflite_support import metadata_schema_py_generated as _metadata_fb
-from tflite_support import metadata as _metadata
 
 TFLITE_OPS = [
     tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
@@ -20,12 +16,6 @@ TFLITE_OPS = [
 ]
 
 TFLITE_OPTIMIZATIONS = [tf.lite.Optimize.DEFAULT]
-
-# Normalization parameters are required when reprocessing the image.
-_INPUT_NORM_MEAN = 127.5
-_INPUT_NORM_STD = 127.5
-_INPUT_MIN = 0
-_INPUT_MAX = 255
 
 labels_filename = "labels.txt"
 
@@ -142,42 +132,6 @@ def convert_bboxes(
     )
 
 
-# RandAugment is based on https://arxiv.org/abs/1909.13719
-def rand_augment(inputs: dict) -> dict:
-    inputs["images"] = keras_cv.layers.RandAugment(
-        # Assumes image is encoded as pixels between 0 - 255
-        value_range=(0, 255),
-        rate=0.5,
-        magnitude=0.25,
-        augmentations_per_image=2,
-        # Setting geometric to False ensures no geometric augmentations are made
-        geometric=False,
-    )(inputs["images"], training=True)
-    return inputs
-
-
-def augmentations_detection(
-    tgt_bbox_format: str,
-    target_size: ty.Tuple[int, int],
-) -> dict:
-    augmentations = tf.keras.Sequential(
-        layers=[
-            keras_cv.layers.RandomFlip(
-                mode="horizontal", bounding_box_format=tgt_bbox_format
-            ),
-            # This operation randomly rescales image with a RV from distribution defined by scale_factor,
-            # crops to crop_size, and then pads cropped image to target_shape
-            keras_cv.layers.JitteredResize(
-                target_size=target_size,
-                crop_size=None,
-                scale_factor=(0.85, 1.3),
-                bounding_box_format=tgt_bbox_format,
-            ),
-        ]
-    )
-    return augmentations
-
-
 def convert_to_tuple(inputs: dict, max_boxes: int) -> ty.Tuple[tf.Tensor, tf.Tensor]:
     """Converts dictionary of inputs into tuple of images and their corresponding bounding boxes
     Args:
@@ -287,19 +241,21 @@ def create_dataset_detection(
     )
 
     # Apply augmentations for that preserve bbox characteristics relative to image
-    def augment_wrapper(inputs):
-        return augmentations_detection(tgt_bbox_format, target_shape[0:2])(
-            inputs, training=True
-        )
-
-    train_dataset = train_dataset.map(
-        augment_wrapper, num_parallel_calls=num_parallel_calls
+    random_flip = keras_cv.layers.RandomFlip(
+        mode="horizontal", bounding_box_format=tgt_bbox_format
+    )
+    # This operation randomly rescales image with a RV from distribution defined by scale_factor,
+    # crops to crop_size, and then pads cropped image to target_shape
+    jittered_resize = keras_cv.layers.JitteredResize(
+        target_size=target_shape[0:2],
+        crop_size=None,
+        scale_factor=(0.85, 1.3),
+        bounding_box_format=tgt_bbox_format,
     )
 
-    # Since RandAugment is only applied to the image, we separate this augmentation from the others
     train_dataset = train_dataset.map(
-        rand_augment, num_parallel_calls=num_parallel_calls
-    )
+        random_flip, num_parallel_calls=num_parallel_calls
+    ).map(jittered_resize, num_parallel_calls=num_parallel_calls)
 
     def conversion_wrapper(inputs):
         return convert_to_tuple(inputs, max_boxes=max_boxes)
@@ -398,139 +354,6 @@ def preprocessing_layers_detection(
     return preprocessing
 
 
-def add_metadata_detection(tflite_model, model_dir):
-    """Adds TFLite metadata to the TFLite model buffer to comply with standard metadata requirements.
-    Args:
-        tflite_model: a converted TFLite model in serialized format
-        model_dir: parent directory of the exported model
-    """
-    model_meta = _metadata_fb.ModelMetadataT()
-    model_meta.name = "Object detection"
-    model_meta.description = (
-        "Identify which of a known set of objects might be present and provide "
-        "information about their positions within the given image."
-    )
-
-    # Creates input info.
-    input_meta = _metadata_fb.TensorMetadataT()
-    input_meta.name = "image"
-    input_meta.content = _metadata_fb.ContentT()
-    input_meta.content.contentProperties = _metadata_fb.ImagePropertiesT()
-    input_meta.content.contentProperties.colorSpace = _metadata_fb.ColorSpaceType.RGB
-    input_meta.content.contentPropertiesType = (
-        _metadata_fb.ContentProperties.ImageProperties
-    )
-    input_normalization = _metadata_fb.ProcessUnitT()
-    input_normalization.optionsType = (
-        _metadata_fb.ProcessUnitOptions.NormalizationOptions
-    )
-    input_normalization.options = _metadata_fb.NormalizationOptionsT()
-    input_normalization.options.mean = [_INPUT_NORM_MEAN]
-    input_normalization.options.std = [_INPUT_NORM_STD]
-    input_meta.processUnits = [input_normalization]
-    input_stats = _metadata_fb.StatsT()
-    input_stats.max = [_INPUT_MAX]
-    input_stats.min = [_INPUT_MIN]
-    input_meta.stats = input_stats
-
-    # Creates outputs info.
-    output_location_meta = _metadata_fb.TensorMetadataT()
-    output_location_meta.name = "location"
-    output_location_meta.description = "The locations of the detected boxes."
-    output_location_meta.content = _metadata_fb.ContentT()
-    output_location_meta.content.contentPropertiesType = (
-        _metadata_fb.ContentProperties.BoundingBoxProperties
-    )
-    output_location_meta.content.contentProperties = (
-        _metadata_fb.BoundingBoxPropertiesT()
-    )
-    # These indices represent the order in which the bounding box coordinates {left, top, right, bottom} are ordered
-    # {1, 0, 3, 2} denotes the {top, left, bottom, right} which is {ymin, xmin, ymax, xmax}
-    output_location_meta.content.contentProperties.index = [1, 0, 3, 2]
-    output_location_meta.content.contentProperties.type = (
-        _metadata_fb.BoundingBoxType.BOUNDARIES
-    )
-    output_location_meta.content.contentProperties.coordinateType = (
-        _metadata_fb.CoordinateType.RATIO
-    )
-    # Range values for metadata are set based on the metadata specifications outlined below
-    # https://github.com/tensorflow/tflite-support/blob/ace5d3f3ce44c5f77c70284fa9c5a4e3f2f92abb/tensorflow_lite_support/metadata/metadata_schema.fbs#L285-L347
-    output_location_meta.content.range = _metadata_fb.ValueRangeT()
-    output_location_meta.content.range.min = 2
-    output_location_meta.content.range.max = 2
-
-    output_class_meta = _metadata_fb.TensorMetadataT()
-    output_class_meta.name = "category"
-    output_class_meta.description = "The categories of the detected boxes."
-    output_class_meta.content = _metadata_fb.ContentT()
-    output_class_meta.content.contentPropertiesType = (
-        _metadata_fb.ContentProperties.FeatureProperties
-    )
-    output_class_meta.content.contentProperties = _metadata_fb.FeaturePropertiesT()
-    # Range values for metadata are set based on the metadata specifications outlined below
-    # https://github.com/tensorflow/tflite-support/blob/ace5d3f3ce44c5f77c70284fa9c5a4e3f2f92abb/tensorflow_lite_support/metadata/metadata_schema.fbs#L285-L347
-    output_class_meta.content.range = _metadata_fb.ValueRangeT()
-    output_class_meta.content.range.min = 2
-    output_class_meta.content.range.max = 2
-    label_file = _metadata_fb.AssociatedFileT()
-    label_file.name = labels_filename
-    label_file.description = "Labels of objects that this model can recognize."
-    label_file.type = _metadata_fb.AssociatedFileType.TENSOR_VALUE_LABELS
-    output_class_meta.associatedFiles = [label_file]
-
-    output_score_meta = _metadata_fb.TensorMetadataT()
-    output_score_meta.name = "score"
-    output_score_meta.description = "The scores of the detected boxes."
-    output_score_meta.content = _metadata_fb.ContentT()
-    output_score_meta.content.contentPropertiesType = (
-        _metadata_fb.ContentProperties.FeatureProperties
-    )
-    output_score_meta.content.contentProperties = _metadata_fb.FeaturePropertiesT()
-    output_score_meta.content.range = _metadata_fb.ValueRangeT()
-    output_score_meta.content.range.min = 2
-    output_score_meta.content.range.max = 2
-
-    output_number_meta = _metadata_fb.TensorMetadataT()
-    output_number_meta.name = "number of detections"
-    output_number_meta.description = "The number of the detected boxes."
-    output_number_meta.content = _metadata_fb.ContentT()
-    output_number_meta.content.contentPropertiesType = (
-        _metadata_fb.ContentProperties.FeatureProperties
-    )
-    output_number_meta.content.contentProperties = _metadata_fb.FeaturePropertiesT()
-
-    # Creates subgraph info.
-    group = _metadata_fb.TensorGroupT()
-    group.name = "detection result"
-    group.tensorNames = [
-        output_location_meta.name,
-        output_class_meta.name,
-        output_score_meta.name,
-    ]
-    subgraph = _metadata_fb.SubGraphMetadataT()
-    subgraph.inputTensorMetadata = [input_meta]
-    subgraph.outputTensorMetadata = [
-        output_location_meta,
-        output_class_meta,
-        output_score_meta,
-        output_number_meta,
-    ]
-    subgraph.outputTensorGroups = [group]
-    model_meta.subgraphMetadata = [subgraph]
-
-    b = flatbuffers.Builder(0)
-    b.Finish(model_meta.Pack(b), _metadata.MetadataPopulator.METADATA_FILE_IDENTIFIER)
-    metadata_buf = b.Output()
-
-    populator = _metadata.MetadataPopulator.with_model_buffer(tflite_model)
-    populator.load_metadata_buffer(metadata_buf)
-    labels_file = os.path.join(model_dir, labels_filename)
-    populator.load_associated_files([labels_file])
-    populator.populate()
-    updated_model_buf = populator.get_model_buffer()
-    return updated_model_buf
-
-
 def save_tflite_detection(
     model: Model,
     model_dir: str,
@@ -553,14 +376,12 @@ def save_tflite_detection(
     converter.target_spec.supported_ops = TFLITE_OPS
     # Enable default optimization to quantize model
     converter.optimizations = TFLITE_OPTIMIZATIONS
-    # Add metadata directly to tflite
     tflite_model = converter.convert()
-    tflite_model_metadata = add_metadata_detection(tflite_model, model_dir)
 
     filename = os.path.join(model_dir, f"{model_name}.tflite")
-    # Writing the updated model buffer into a file.
+    # Writing the model buffer into a file.
     with open(filename, "wb") as f:
-        f.write(tflite_model_metadata)
+        f.write(tflite_model)
 
 
 if __name__ == "__main__":
@@ -591,7 +412,7 @@ if __name__ == "__main__":
 
     DATA_JSON, MODEL_DIR, num_epochs = parse_args()
 
-    EPOCHS = 200 if num_epochs == None or 0 else num_epochs
+    EPOCHS = 200 if num_epochs is None or 0 else int(num_epochs)
     # Read dataset file, labels should be changed according to the desired model output.
     LABELS = ["orange_triangle", "blue_star"]
     # Get filenames and bounding boxes of all images
@@ -619,6 +440,7 @@ if __name__ == "__main__":
         num_parallel_calls=AUTOTUNE,
         prefetch_buffer_size=AUTOTUNE,
     )
+
     # Build and compile model
     with strategy.scope():
         model = build_and_compile_detection(len(LABELS), TGT_BBOX, TARGET_SHAPE)
