@@ -15,4 +15,3 @@ cleanup()
 python3 -m model.training --dataset_file=dataset.jsonl --model_output_directory=. --num_epochs=2 --labels=green_square/blue_star
 pytest tests/
 
-cleanup()
