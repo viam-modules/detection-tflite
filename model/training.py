@@ -28,7 +28,13 @@ def parse_args():
     parser.add_argument("--dataset_file", dest="data_json", type=str)
     parser.add_argument("--model_output_directory", dest="model_dir", type=str)
     parser.add_argument("--num_epochs", dest="num_epochs", type=int)
-    parser.add_argument('--labels', dest="labels", type=str, required=False, help='Slash(/)-separated list of labels')
+    parser.add_argument(
+        "--labels",
+        dest="labels",
+        type=str,
+        required=False,
+        help="Slash(/)-separated list of labels",
+    )
     args = parser.parse_args()
     return args.data_json, args.model_dir, args.num_epochs, args.labels
 
@@ -417,7 +423,11 @@ if __name__ == "__main__":
     if EPOCHS < 0:
         raise ValueError("Invalid number of epochs, must be a positive nonzero number")
     # Read dataset file, labels should be changed according to the desired model output.
-    LABELS = ["orange_triangle", "blue_star"] if labels is None else [label.strip() for label in labels.split('/')]
+    LABELS = (
+        ["orange_triangle", "blue_star"]
+        if labels is None
+        else [label.strip() for label in labels.split("/")]
+    )
     # Get filenames and bounding boxes of all images
     (
         image_filenames,
