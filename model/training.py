@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 import typing as ty
 
 import tensorflow as tf
@@ -20,23 +21,24 @@ TFLITE_OPTIMIZATIONS = [tf.lite.Optimize.DEFAULT]
 labels_filename = "labels.txt"
 
 
-def parse_args():
+def parse_args(args):
     """Returns dataset file, model output directory, and num_epochs if present. These must be parsed as command line
     arguments and then used as the model input and output, respectively. The number of epochs can be used to optionally override the default.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_file", dest="data_json", type=str)
     parser.add_argument("--model_output_directory", dest="model_dir", type=str)
-    parser.add_argument("--num_epochs", dest="num_epochs", type=int)
+    parser.add_argument("--num_epochs", dest="num_epochs", type=int) 
     parser.add_argument(
         "--labels",
         dest="labels",
+        nargs="+",
         type=str,
         required=False,
-        help="Slash(/)-separated list of labels",
+        help="Space-separated list of labels",
     )
-    args = parser.parse_args()
-    return args.data_json, args.model_dir, args.num_epochs, args.labels
+    parsed_args = parser.parse_args(args)
+    return parsed_args.data_json, parsed_args.model_dir, parsed_args.num_epochs, parsed_args.labels
 
 
 def parse_filenames_and_bboxes_from_json(
@@ -417,7 +419,7 @@ if __name__ == "__main__":
     NUM_WORKERS = strategy.num_replicas_in_sync
     GLOBAL_BATCH_SIZE = BATCH_SIZE * NUM_WORKERS
 
-    DATA_JSON, MODEL_DIR, num_epochs, labels = parse_args()
+    DATA_JSON, MODEL_DIR, num_epochs, labels = parse_args(sys.argv[1:])
 
     EPOCHS = 200 if num_epochs is None or 0 else int(num_epochs)
     if EPOCHS < 0:
