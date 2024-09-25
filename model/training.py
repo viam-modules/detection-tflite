@@ -28,7 +28,7 @@ def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_file", dest="data_json", type=str)
     parser.add_argument("--model_output_directory", dest="model_dir", type=str)
-    parser.add_argument("--num_epochs", dest="num_epochs", type=int) 
+    parser.add_argument("--num_epochs", dest="num_epochs", type=int)
     parser.add_argument(
         "--labels",
         dest="labels",
@@ -38,7 +38,12 @@ def parse_args(args):
         help="Space-separated list of labels",
     )
     parsed_args = parser.parse_args(args)
-    return parsed_args.data_json, parsed_args.model_dir, parsed_args.num_epochs, parsed_args.labels
+    return (
+        parsed_args.data_json,
+        parsed_args.model_dir,
+        parsed_args.num_epochs,
+        parsed_args.labels,
+    )
 
 
 def parse_filenames_and_bboxes_from_json(
