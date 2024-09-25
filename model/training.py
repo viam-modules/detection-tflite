@@ -430,11 +430,7 @@ if __name__ == "__main__":
     if EPOCHS < 0:
         raise ValueError("Invalid number of epochs, must be a positive nonzero number")
     # Read dataset file, labels should be changed according to the desired model output.
-    LABELS = (
-        ["orange_triangle", "blue_star"]
-        if labels is None
-        else labels
-    )
+    LABELS = ["orange_triangle", "blue_star"] if labels is None else labels
     # Get filenames and bounding boxes of all images
     (
         image_filenames,
