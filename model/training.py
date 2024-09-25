@@ -433,7 +433,7 @@ if __name__ == "__main__":
     LABELS = (
         ["orange_triangle", "blue_star"]
         if labels is None
-        else [label.strip() for label in labels.split("/")]
+        else labels
     )
     # Get filenames and bounding boxes of all images
     (
