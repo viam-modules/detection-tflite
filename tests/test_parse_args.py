@@ -6,7 +6,7 @@ def test_parse_args():
         "--dataset_file=test_data.json",
         "--model_output_directory=test_output/",
         "--num_epochs=5",
-        "--labels='label_1 label_2'"
+        "--labels='label_1 label_2'",
     ]
 
     data_json, model_dir, num_epochs, labels = model.training.parse_args(args)
@@ -18,4 +18,6 @@ def test_parse_args():
         model_dir == "test_output/"
     ), f"Expected model_output_directory to be 'test_output/', got {model_dir}"
     assert num_epochs == 5, f"Expected num_epochs to be 5, got {num_epochs}"
-    assert labels == "'label_1 label_2'", f"Expected labels to be 'label_1 label_2', got {labels}"
+    assert (
+        labels == "'label_1 label_2'"
+    ), f"Expected labels to be 'label_1 label_2', got {labels}"
