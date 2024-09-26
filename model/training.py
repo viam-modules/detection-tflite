@@ -32,7 +32,6 @@ def parse_args(args):
     parser.add_argument(
         "--labels",
         dest="labels",
-        nargs="+",
         type=str,
         required=False,
         help="Space-separated list of labels",
@@ -430,7 +429,11 @@ if __name__ == "__main__":
     if EPOCHS < 0:
         raise ValueError("Invalid number of epochs, must be a positive nonzero number")
     # Read dataset file, labels should be changed according to the desired model output.
-    LABELS = ["orange_triangle", "blue_star"] if labels is None else labels
+    LABELS = (
+        ["orange_triangle", "blue_star"]
+        if labels is None
+        else [label for label in labels.strip("'").split()]
+    )
     # Get filenames and bounding boxes of all images
     (
         image_filenames,
