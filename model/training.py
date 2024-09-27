@@ -34,7 +34,8 @@ def parse_args(args):
         dest="labels",
         type=str,
         required=False,
-        help="Space-separated list of labels",
+        help="Space-separated list of labels, MUST be enclosed in single quotes",
+        # ex: 'green_square blue_triangle'
     )
     parsed_args = parser.parse_args(args)
     return (
