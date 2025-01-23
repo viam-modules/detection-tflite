@@ -214,9 +214,9 @@ def create_dataset_detection(
 
     # Shuffle the data for each buffer size
     # Disabling reshuffling ensures items from the training and test set will not get shuffled into each other
-    dataset = dataset.shuffle(
-        buffer_size=shuffle_buffer_size, reshuffle_each_iteration=False
-    )
+    # dataset = dataset.shuffle(
+    #     buffer_size=shuffle_buffer_size, reshuffle_each_iteration=False
+    # )
 
     train_size = int(train_split * len(filenames))
     val_size = int((1 - train_split) * 0.5 * len(filenames))
