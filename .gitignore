@@ -1,6 +1,7 @@
 # Distribution / packaging
 *.egg-info/
 *.egg
+.DS_STORE
 
 # Unit test / coverage reports
 .cache
