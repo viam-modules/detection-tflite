@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy-staging:
-    uses: viam-modules/common-workflows/.github/workflows/deploy_training_script.yaml@main
+    uses: viam-modules/common-workflows/.github/workflows/deploy_training_script.yaml@modify-workflows
     with:
       framework: tflite
       script_name: detection-tflite
