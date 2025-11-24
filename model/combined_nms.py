@@ -1,8 +1,9 @@
 import tensorflow as tf
+import tf_keras as keras
 from keras_cv import bounding_box
 
 
-class CombinedNMS(tf.keras.layers.Layer):
+class CombinedNMS(keras.layers.Layer):
     def __init__(
         self,
         from_logits,
@@ -41,9 +42,7 @@ class CombinedNMS(tf.keras.layers.Layer):
         def nms_filtering_indices(scores):
             # Based on the top scores, filter scores below the confidence threshold,
             # Then, perform non-max suppression
-            indices = tf.where(
-                tf.keras.backend.greater(scores, self.confidence_threshold)
-            )
+            indices = tf.where(keras.backend.greater(scores, self.confidence_threshold))
 
             filtered_boxes = tf.gather_nd(box_prediction, indices)
             filtered_scores = tf.gather(scores, indices)[:, 0]
@@ -72,21 +71,21 @@ class CombinedNMS(tf.keras.layers.Layer):
         if self.from_logits:
             class_predictions = tf.math.sigmoid(class_predictions)
 
-        scores = tf.keras.backend.max(class_predictions, axis=1)
-        labels = tf.keras.backend.argmax(class_predictions, axis=1)
+        scores = keras.backend.max(class_predictions, axis=1)
+        labels = keras.backend.argmax(class_predictions, axis=1)
         indices = nms_filtering_indices(scores)
 
         # Filter labels and then class predictions on indices and labels
         labels = tf.gather_nd(labels, indices)
         scores = tf.gather_nd(
             class_predictions,
-            indices=tf.keras.backend.stack([indices[:, 0], labels], axis=1),
+            indices=keras.backend.stack([indices[:, 0], labels], axis=1),
         )
 
         scores, top_indices = tf.nn.top_k(
             scores,
-            k=tf.keras.backend.minimum(
-                self.max_total_detections, tf.keras.backend.shape(scores)[0]
+            k=keras.backend.minimum(
+                self.max_total_detections, keras.backend.shape(scores)[0]
             ),
         )
 
@@ -103,7 +102,7 @@ class CombinedNMS(tf.keras.layers.Layer):
             "classes": tf.expand_dims(tf.cast(labels, dtype=tf.float32), axis=1),
             "confidence": tf.expand_dims(scores, axis=1),
             "num_detections": tf.cast(
-                [tf.keras.backend.shape(boxes)[1]], dtype=tf.float32
+                [keras.backend.shape(boxes)[1]], dtype=tf.float32
             ),
         }
 

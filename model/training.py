@@ -5,10 +5,10 @@ import sys
 import typing as ty
 
 import tensorflow as tf
-from tensorflow import keras
+import tf_keras as keras
 import keras_cv
 from keras_cv import bounding_box
-from keras import Model
+from tf_keras import Model
 from .combined_nms import CombinedNMS
 
 TFLITE_OPS = [
@@ -108,7 +108,7 @@ def parse_image_and_encode_bboxes(
     # Resize it to fixed shape
     image_resized = tf.image.resize(image_decoded, [img_size[0], img_size[1]])
     # Convert string labels to encoded labels
-    encoder = tf.keras.layers.StringLookup(
+    encoder = keras.layers.StringLookup(
         vocabulary=all_labels, num_oov_indices=0, output_mode="int"
     )
     labels_encoded = encoder(data["bounding_boxes"]["classes"])
@@ -319,7 +319,7 @@ def build_and_compile_detection(
     model.backbone.trainable = False
 
     # Enforce global clipnorm for optimizer
-    optimizer = tf.keras.optimizers.SGD(
+    optimizer = keras.optimizers.SGD(
         learning_rate=0.01,
         momentum=0.9,
         global_clipnorm=10.0,
@@ -350,7 +350,7 @@ def preprocessing_layers_detection(
         target_shape: intended height and width of image
     """
 
-    preprocessing = tf.keras.Sequential(
+    preprocessing = keras.Sequential(
         [
             # Resize to be (None, target_shape[0], target_shape[1], target_shape[2])
             # for compatibility with the RetinaNet model.
@@ -376,7 +376,7 @@ def save_tflite_detection(
 ) -> None:
     # Wrapping model here with the preprocessing step
     # This allows us to avoid overriding the custom compile function for RetinaNet
-    input = tf.keras.Input(target_shape, batch_size=1, dtype=tf.uint8)
+    input = keras.Input(target_shape, batch_size=1, dtype=tf.uint8)
     preprocessing = preprocessing_layers_detection(target_shape=target_shape)
     predictions = model(preprocessing(input), training=False)
     # Wrap output in prediction decoder, so it's in the dictionary format that we expect.
@@ -384,7 +384,7 @@ def save_tflite_detection(
     # we pass in a placeholder value of a tensor with ones with the intended batch and shape
     batched_prediction_placeholder = tf.ones((1,) + target_shape)
     output = model.decode_predictions(predictions, batched_prediction_placeholder)
-    wrapped_model = tf.keras.Model(inputs=input, outputs=output)
+    wrapped_model = keras.Model(inputs=input, outputs=output)
     # Convert the model to tflite
     converter = tf.lite.TFLiteConverter.from_keras_model(wrapped_model)
     converter.target_spec.supported_ops = TFLITE_OPS
