@@ -29,6 +29,7 @@ def parse_args(args):
     parser.add_argument("--dataset_file", dest="data_json", type=str)
     parser.add_argument("--model_output_directory", dest="model_dir", type=str)
     parser.add_argument("--num_epochs", dest="num_epochs", type=int)
+    parser.add_argument("--learning_rate", dest="learning_rate", type=float)
     parser.add_argument(
         "--labels",
         dest="labels",
@@ -43,6 +44,7 @@ def parse_args(args):
         parsed_args.model_dir,
         parsed_args.num_epochs,
         parsed_args.labels,
+        parsed_args.learning_rate,
     )
 
 
@@ -293,7 +295,7 @@ def create_dataset_detection(
 
 # Build the Keras model for object detection
 def build_and_compile_detection(
-    num_classes: int, bounding_box_format: str, input_shape: ty.Tuple[int, int, int]
+    num_classes: int, bounding_box_format: str, input_shape: ty.Tuple[int, int, int], lr: float = 0.001
 ) -> Model:
     # Load the RetinaNet architecture with EfficientNet backbone
     model = keras_cv.models.RetinaNet(
@@ -319,8 +321,9 @@ def build_and_compile_detection(
     model.backbone.trainable = False
 
     # Enforce global clipnorm for optimizer
-    optimizer = keras.optimizers.SGD(
-        learning_rate=0.01,
+
+    optimizer = tf.keras.optimizers.SGD(
+        learning_rate=lr,
         momentum=0.9,
         global_clipnorm=10.0,
     )
@@ -424,7 +427,7 @@ if __name__ == "__main__":
     NUM_WORKERS = strategy.num_replicas_in_sync
     GLOBAL_BATCH_SIZE = BATCH_SIZE * NUM_WORKERS
 
-    DATA_JSON, MODEL_DIR, num_epochs, labels = parse_args(sys.argv[1:])
+    DATA_JSON, MODEL_DIR, num_epochs, labels, lr = parse_args(sys.argv[1:])
 
     EPOCHS = 200 if num_epochs is None or 0 else int(num_epochs)
     if EPOCHS < 0:
@@ -463,13 +466,20 @@ if __name__ == "__main__":
 
     # Build and compile model
     with strategy.scope():
-        model = build_and_compile_detection(len(LABELS), TGT_BBOX, TARGET_SHAPE)
+        model = build_and_compile_detection(len(LABELS), TGT_BBOX, TARGET_SHAPE, lr)
+
+    early_stopping = keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=10,
+        restore_best_weights=True,
+    )
 
     # Train model on data
     loss_history = model.fit(
         x=train_dataset,
         validation_data=val_dataset,
         epochs=EPOCHS,
+        callbacks=[early_stopping],
     )
 
     # Save labels.txt file
