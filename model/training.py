@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import typing as ty
+import numpy as np
 
 import tensorflow as tf
 import tf_keras as keras
@@ -19,12 +20,23 @@ TFLITE_OPS = [
 TFLITE_OPTIMIZATIONS = [tf.lite.Optimize.DEFAULT]
 
 labels_filename = "labels.txt"
+metrics_filename = "model_metrics.json"
 
 
 def parse_args(args):
     """Returns dataset file, model output directory, and num_epochs if present. These must be parsed as command line
     arguments and then used as the model input and output, respectively. The number of epochs can be used to optionally override the default.
     """
+    def str2bool(v):
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ("yes", "true", "t", "y", "1"):
+            return True
+        elif v.lower() in ("no", "false", "f", "n", "0"):
+            return False
+        else:
+            raise argparse.ArgumentTypeError("Boolean value expected.")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_file", dest="data_json", type=str)
     parser.add_argument("--model_output_directory", dest="model_dir", type=str)
@@ -38,6 +50,7 @@ def parse_args(args):
         help="Space-separated list of labels, MUST be enclosed in single quotes",
         # ex: 'green_square blue_triangle'
     )
+    parser.add_argument("--early_stopping", dest="early_stopping", type=str2bool, help="Whether to use early stopping during training", default=False)
     parsed_args = parser.parse_args(args)
     return (
         parsed_args.data_json,
@@ -45,6 +58,7 @@ def parse_args(args):
         parsed_args.num_epochs,
         parsed_args.labels,
         parsed_args.learning_rate,
+        parsed_args.early_stopping,
     )
 
 
@@ -83,6 +97,7 @@ def parse_filenames_and_bboxes_from_json(
                     )
             bbox_labels.append(labels)
             bbox_coords.append(coords)
+
     return image_filenames, bbox_labels, bbox_coords
 
 
@@ -159,6 +174,7 @@ def convert_to_tuple(inputs: dict, max_boxes: int) -> ty.Tuple[tf.Tensor, tf.Ten
     )
 
 
+
 def create_dataset_detection(
     filenames: ty.List[str],
     classes: ty.List[str],
@@ -213,7 +229,7 @@ def create_dataset_detection(
 
     # Parse and preprocess observations in parallel
     dataset = dataset.map(mapping_fnc, num_parallel_calls=num_parallel_calls)
-
+  
     # Shuffle the data for each buffer size
     # Disabling reshuffling ensures items from the training and test set will not get shuffled into each other
     dataset = dataset.shuffle(
@@ -345,6 +361,13 @@ def save_labels(labels: ty.List[str], model_dir: str) -> None:
         f.write(labels[-1])
 
 
+def save_metrics(loss_history: tf.keras.callbacks.History, model_dir: str) -> None:
+    filename = os.path.join(model_dir, metrics_filename)
+    with open(filename, "w") as f:
+        json.dump(loss_history.history, f, ensure_ascii=False)
+    print(f"Saved metrics to {filename}")
+
+
 def preprocessing_layers_detection(
     target_shape: ty.Tuple[int, int, int] = (256, 256, 3),
 ) -> ty.Tuple[tf.Tensor, tf.Tensor]:
@@ -427,7 +450,7 @@ if __name__ == "__main__":
     NUM_WORKERS = strategy.num_replicas_in_sync
     GLOBAL_BATCH_SIZE = BATCH_SIZE * NUM_WORKERS
 
-    DATA_JSON, MODEL_DIR, num_epochs, labels, lr = parse_args(sys.argv[1:])
+    DATA_JSON, MODEL_DIR, num_epochs, labels, lr, early_stop = parse_args(sys.argv[1:])
 
     EPOCHS = 200 if num_epochs is None or 0 else int(num_epochs)
     if EPOCHS < 0:
@@ -469,19 +492,31 @@ if __name__ == "__main__":
         model = build_and_compile_detection(len(LABELS), TGT_BBOX, TARGET_SHAPE, lr)
 
     early_stopping = keras.callbacks.EarlyStopping(
-        monitor="val_loss",
-        patience=10,
+        monitor="val_box_loss",
+        patience=8,
         restore_best_weights=True,
     )
 
-    # Train model on data
-    loss_history = model.fit(
-        x=train_dataset,
-        validation_data=val_dataset,
-        epochs=EPOCHS,
-        callbacks=[early_stopping],
+    if early_stop:
+        print("Using early stopping during training")
+        # Train model on data with early stopping
+        loss_history = model.fit(
+            x=train_dataset,
+            validation_data=val_dataset,
+            epochs=EPOCHS,
+            callbacks=[early_stopping],
     )
+    else:
+        print("Not using early stopping during training")
+        # Train model on data without early stopping
+        loss_history = model.fit(
+            x=train_dataset,
+            validation_data=val_dataset,
+            epochs=EPOCHS,
+        )
 
+    # Save metrics.json file
+    save_metrics(loss_history, MODEL_DIR)
     # Save labels.txt file
     save_labels(LABELS, MODEL_DIR)
     # Convert the model to tflite
