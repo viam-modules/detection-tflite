@@ -3,7 +3,7 @@ name: Deploy ML Training Image
 on:
   workflow_dispatch:
   push:
-    branches: [APP-11770-add-visibility-public-to-workflow]
+    branches: [update-workflow-test]
     paths-ignore:
       - "README.md"
 
