@@ -8,7 +8,7 @@ We test this when you cut a PR by running `scripts/test.sh`. This in turn just r
 ## Usage
 In order to submit this script with custom arguments, you must use the Viam CLI. One such example is included below:
 ```
-viam train submit custom with-upload --dataset-id=<DATASET-ID> --model-org-id=<ORG-ID> --model-name=detection --model-type=object_detection --framework=tflite --path=<REPO-TAR-PATH> --script-name=detection_script --args=num_epochs=3,labels="'green_square blue_star'"
+viam train submit custom with-upload --dataset-id=<DATASET-ID> --model-org-id=<MODEL-ORG-ID> --model-name=detection --model-type=object_detection --framework=tflite --path=<REPO-TAR-PATH> --org-id=<SCRIPT-ORG-ID> --container-version=tf:2.21 --script-name=detection_script --args=num_epochs=3,labels="'green_square blue_star'"
 ```
 Be sure to note that labels is surrounded with single quotes then enclosed with double quotes to ensure it is submitted properly. If you are running the script from a previous version or from the website, you will not be able to use custom arguments. 
 
