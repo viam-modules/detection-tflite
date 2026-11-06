@@ -18,7 +18,7 @@ The script uses Keras 3 and needs Python 3.11 or later, so it only runs on the `
 
 ### Pull Request
 
-When you submit a pull request a workflow will run using our [common workflows](https://github.com/viam-modules/common-workflows/) that will lint check your code, build it in `tensorflow/tensorflow:2.21.0-gpu` (the public base of the `tf:2.21` training container) and run the test file you specify.
+When you submit a pull request a workflow will run using our [common workflows](https://github.com/viam-modules/common-workflows/) that will lint check your code, install it in a `python:3.11` container (the Python version of the `tf:2.21` training container) and run the test file you specify.
 
 The default test files is `scripts/test.sh`. If this changes you will need to update `.github/workflows/pull_request.yaml` so that it's
 
