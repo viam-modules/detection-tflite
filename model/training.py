@@ -4,11 +4,12 @@ import os
 import sys
 import typing as ty
 
-import tensorflow as tf
-import tf_keras as keras
+import keras
 import keras_cv
+import tensorflow as tf
+from keras import Model
 from keras_cv import bounding_box
-from tf_keras import Model
+
 from .combined_nms import CombinedNMS
 
 TFLITE_OPS = [
@@ -368,6 +369,24 @@ def preprocessing_layers_detection(
     return preprocessing
 
 
+class DetectionInference(keras.layers.Layer):
+    """Resizes uint8 images, runs RetinaNet and decodes its predictions."""
+
+    # decode_predictions fails on symbolic tensors during functional model
+    # construction, so it runs inside a layer call instead.
+    def __init__(
+        self, retinanet: Model, target_shape: ty.Tuple[int, int, int], **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.retinanet = retinanet
+        self.preprocessing = preprocessing_layers_detection(target_shape=target_shape)
+
+    def call(self, images):
+        resized = self.preprocessing(images)
+        predictions = self.retinanet(resized, training=False)
+        return self.retinanet.decode_predictions(predictions, resized)
+
+
 def save_tflite_detection(
     model: Model,
     model_dir: str,
@@ -376,14 +395,8 @@ def save_tflite_detection(
 ) -> None:
     # Wrapping model here with the preprocessing step
     # This allows us to avoid overriding the custom compile function for RetinaNet
-    input = keras.Input(target_shape, batch_size=1, dtype=tf.uint8)
-    preprocessing = preprocessing_layers_detection(target_shape=target_shape)
-    predictions = model(preprocessing(input), training=False)
-    # Wrap output in prediction decoder, so it's in the dictionary format that we expect.
-    # Since decode_predictions relies on the input tensor for its shape,
-    # we pass in a placeholder value of a tensor with ones with the intended batch and shape
-    batched_prediction_placeholder = tf.ones((1,) + target_shape)
-    output = model.decode_predictions(predictions, batched_prediction_placeholder)
+    input = keras.Input(target_shape, batch_size=1, dtype="uint8")
+    output = DetectionInference(model, target_shape)(input)
     wrapped_model = keras.Model(inputs=input, outputs=output)
     # Convert the model to tflite
     converter = tf.lite.TFLiteConverter.from_keras_model(wrapped_model)
