@@ -12,7 +12,7 @@ viam train submit custom with-upload --dataset-id=<DATASET-ID> --model-org-id=<M
 ```
 Be sure to note that labels is surrounded with single quotes then enclosed with double quotes to ensure it is submitted properly. If you are running the script from a previous version or from the website, you will not be able to use custom arguments. 
 
-The script uses Keras 3 and needs Python 3.11 or later, so it only runs on the `tf:2.21` container.
+The script uses Keras 3 and needs Python 3.11 or later, so of the Viam training containers it only runs on `tf:2.21`.
 
 ## Workflows
 
