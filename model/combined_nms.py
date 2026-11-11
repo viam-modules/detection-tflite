@@ -99,7 +99,7 @@ class CombinedNMS(keras.layers.Layer):
             # we expand the dims such that the batch size is 1.
             "classes": tf.expand_dims(tf.cast(labels, dtype=tf.float32), axis=1),
             "confidence": tf.expand_dims(scores, axis=1),
-            "num_detections": tf.cast([tf.shape(boxes)[1]], dtype=tf.float32),
+            "num_detections": tf.cast([tf.shape(boxes)[0]], dtype=tf.float32),
         }
 
         return bounding_boxes
