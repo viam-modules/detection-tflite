@@ -8,15 +8,17 @@ We test this when you cut a PR by running `scripts/test.sh`. This in turn just r
 ## Usage
 In order to submit this script with custom arguments, you must use the Viam CLI. One such example is included below:
 ```
-viam train submit custom with-upload --dataset-id=<DATASET-ID> --model-org-id=<MODEL-ORG-ID> --model-name=detection --model-type=object_detection --framework=tflite --path=<REPO-TAR-PATH> --org-id=<SCRIPT-ORG-ID> --container-version=tf:2.21 --script-name=detection_script --args=num_epochs=3,labels="'green_square blue_star'"
+viam train submit custom with-upload --dataset-id=<DATASET-ID> --model-org-id=<MODEL-ORG-ID> --model-name=detection --model-type=object_detection --framework=tflite --path=<REPO-TAR-PATH> --org-id=<SCRIPT-ORG-ID> --container-id=<CONTAINER-ID> --script-name=detection_script --args=num_epochs=3,labels="'green_square blue_star'"
 ```
 Be sure to note that labels is surrounded with single quotes then enclosed with double quotes to ensure it is submitted properly. If you are running the script from a previous version or from the website, you will not be able to use custom arguments. 
+
+The script uses Keras 3 and needs Python 3.11 or later, so of the Viam training containers it only runs on `tf:2.21`. Use the ID of `tf:2.21` from `viam train containers list` as `<CONTAINER-ID>`.
 
 ## Workflows
 
 ### Pull Request
 
-When you submit a pull request a workflow will run using our [common workflows](https://github.com/viam-modules/common-workflows/) that will lint check your code, build it in the docker image we use in production for training and run the test file you specify.
+When you submit a pull request a workflow will run using our [common workflows](https://github.com/viam-modules/common-workflows/) that will lint check your code, install it in a `python:3.11` container (the Python version of the `tf:2.21` training container) and run the test file you specify.
 
 The default test files is `scripts/test.sh`. If this changes you will need to update `.github/workflows/pull_request.yaml` so that it's
 

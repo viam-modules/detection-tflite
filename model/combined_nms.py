@@ -1,5 +1,5 @@
+import keras
 import tensorflow as tf
-import tf_keras as keras
 from keras_cv import bounding_box
 
 
@@ -42,7 +42,7 @@ class CombinedNMS(keras.layers.Layer):
         def nms_filtering_indices(scores):
             # Based on the top scores, filter scores below the confidence threshold,
             # Then, perform non-max suppression
-            indices = tf.where(keras.backend.greater(scores, self.confidence_threshold))
+            indices = tf.where(tf.greater(scores, self.confidence_threshold))
 
             filtered_boxes = tf.gather_nd(box_prediction, indices)
             filtered_scores = tf.gather(scores, indices)[:, 0]
@@ -71,22 +71,20 @@ class CombinedNMS(keras.layers.Layer):
         if self.from_logits:
             class_predictions = tf.math.sigmoid(class_predictions)
 
-        scores = keras.backend.max(class_predictions, axis=1)
-        labels = keras.backend.argmax(class_predictions, axis=1)
+        scores = tf.reduce_max(class_predictions, axis=1)
+        labels = tf.argmax(class_predictions, axis=1)
         indices = nms_filtering_indices(scores)
 
         # Filter labels and then class predictions on indices and labels
         labels = tf.gather_nd(labels, indices)
         scores = tf.gather_nd(
             class_predictions,
-            indices=keras.backend.stack([indices[:, 0], labels], axis=1),
+            indices=tf.stack([indices[:, 0], labels], axis=1),
         )
 
         scores, top_indices = tf.nn.top_k(
             scores,
-            k=keras.backend.minimum(
-                self.max_total_detections, keras.backend.shape(scores)[0]
-            ),
+            k=tf.minimum(self.max_total_detections, tf.shape(scores)[0]),
         )
 
         # Filter input using the final set of indices
@@ -101,9 +99,7 @@ class CombinedNMS(keras.layers.Layer):
             # we expand the dims such that the batch size is 1.
             "classes": tf.expand_dims(tf.cast(labels, dtype=tf.float32), axis=1),
             "confidence": tf.expand_dims(scores, axis=1),
-            "num_detections": tf.cast(
-                [keras.backend.shape(boxes)[1]], dtype=tf.float32
-            ),
+            "num_detections": tf.cast([tf.shape(boxes)[0]], dtype=tf.float32),
         }
 
         return bounding_boxes
